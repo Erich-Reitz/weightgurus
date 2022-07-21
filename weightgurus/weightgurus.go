@@ -9,12 +9,6 @@ import (
 	"strconv"
 )
 
-type loginData struct {
-	email    string
-	password string
-	web      string
-}
-
 type WeightGuruOperation struct {
 	Bmi             float64
 	BodyFat         float64
@@ -65,8 +59,14 @@ func login(email, password string) string {
 	})
 	postBody := bytes.NewBuffer(encodedLoginData)
 
-	req := CreateNewPostRequest("https://api.weightgurus.com/v3/account/login", "application/json", postBody)
-	body := DoRequestReturnBody(req)
+	req, err := CreateNewPostRequest("https://api.weightgurus.com/v3/account/login", "application/json", postBody)
+	if err != nil {
+		log.Fatal(err)
+	}
+	body, err := DoRequestReturnBody(req)
+	if (err != nil) {
+		log.Fatal(err)
+	}
 
 	var weightGurusResponse map[string]interface{}
 	json.Unmarshal(body, &weightGurusResponse)
@@ -126,18 +126,26 @@ func convertResponseInterfaceToWeightGuruOperation(responseInterface interface{}
 	return weightGuruOperation
 }
 
-func removeDeletedOperation(deletedOperation WeightGuruOperation, weightHistory []WeightGuruOperation) []WeightGuruOperation {
-	for i, v := range weightHistory {
+func removeDeletedOperation(deletedOperation WeightGuruOperation, weightHistory *[]WeightGuruOperation) []WeightGuruOperation {
+	for i, v := range *weightHistory {
 		if v.entryTimestamp == deletedOperation.entryTimestamp {
-			weightHistory = append(weightHistory[:i], weightHistory[i+1:]...)
+			// result is everything but the deleted operation
+			if i == len(*weightHistory)-1 {
+				return (*weightHistory)[:i]
+			}
+			*weightHistory = append((*weightHistory)[:i], (*weightHistory)[i+1:]...)
+			break;
 		}
 	}
-	return weightHistory
+	return *weightHistory; 
 }
 
 func getWeightGurusOperations(params weightHistoryParams) []interface{} {
 	req := prepareWeightHistoryRequest(params)
-	body := DoRequestReturnBody(req)
+	body, err := DoRequestReturnBody(req)
+	if (err != nil) {
+		log.Fatal(err)
+	}
 
 	var response map[string]interface{}
 	json.Unmarshal(body, &response)
@@ -164,7 +172,7 @@ func getWeightGurusEntries(params weightHistoryParams) []WeightGuruOperation {
 	}
 
 	for _, deleteOperation := range operationsToDelete {
-		weightGuruEntries = removeDeletedOperation(deleteOperation, weightGuruEntries)
+		weightGuruEntries = removeDeletedOperation(deleteOperation, &weightGuruEntries)
 	}
 
 	return weightGuruEntries

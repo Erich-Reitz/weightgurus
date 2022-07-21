@@ -12,34 +12,33 @@ func AddBearerTokenToRequest(req *http.Request, bearerToken string) *http.Reques
 	return req
 }
 
-func DoRequestReturnBody(req *http.Request) []byte {
+func DoRequestReturnBody(req *http.Request) ([]byte, error) {
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
+
+	// handle outside to defer than log fatal
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	return body
+	return body, err
 }
 
-func CreateNewGetRequest(endpointUrl string) *http.Request {
-	req, err := http.NewRequest(http.MethodGet, endpointUrl, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return req
+func CreateNewGetRequest(endpointUrl string) (*http.Request, error) {
+	return http.NewRequest(http.MethodGet, endpointUrl, nil)
 }
 
-func CreateNewPostRequest(endpointUrl, contentType string, body io.Reader) *http.Request {
+func CreateNewPostRequest(endpointUrl, contentType string, body io.Reader) (*http.Request, error) {
 	req, err := http.NewRequest(http.MethodPost, endpointUrl, body)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	req.Header.Set("Content-Type", contentType)
-	return req
+	return req, nil
 }
 
 func getEndpointUrl(params weightHistoryParams) string {
@@ -51,7 +50,10 @@ func getEndpointUrl(params weightHistoryParams) string {
 }
 
 func prepareWeightHistoryRequest(params weightHistoryParams) *http.Request {
-	req := CreateNewGetRequest(getEndpointUrl(params))
+	req, err := CreateNewGetRequest(getEndpointUrl(params))
+	if err != nil {
+		log.Fatal(err)
+	}
 	req = AddBearerTokenToRequest(req, params.bearerToken)
 	return req
 }
