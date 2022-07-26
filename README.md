@@ -5,7 +5,7 @@
 package main
 
 import (
-	"weightgurus/weightgurus"
+	"github.com/Erich-Reitz/goWeightGurus"
 )
 
 func main() {
