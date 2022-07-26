@@ -5,12 +5,12 @@
 package main
 
 import (
-	"github.com/Erich-Reitz/goWeightGurus"
+	"github.com/Erich-Reitz/weightgurus"
 )
 
 func main() {
-	entries := WeightGurus.GetNonDeletedEntries("email", "password") 
+	entries := weightgurus.GetNonDeletedEntries("email", "password") 
 	// or
-	WeightGurus.WriteNonDeletedEntriesToFile("email", "password", "results.json")
+	weightgurus.WriteNonDeletedEntriesToFile("email", "password", "results.json"); 
 }
 ```
