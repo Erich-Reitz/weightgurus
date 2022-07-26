@@ -1,4 +1,4 @@
-package WeightGurus
+package weightgurus
 
 import (
 	"bytes"
@@ -26,32 +26,41 @@ type weightHistoryParams struct {
 	startDate   string
 }
 
-func GetNonDeletedEntries(email, password string) []WeightGuruOperation {
-	bearerToken := login(email, password)
+func GetNonDeletedEntries(email, password string) ([]WeightGuruOperation, error) {
+	bearerToken, err := login(email, password)
+	if err != nil {
+		return nil, err;
+	}
 
 	params := weightHistoryParams{
 		bearerToken: bearerToken,
 		startDate:   "",
 	}
-	weightGuruEntries := getWeightGurusEntries(params)
-	return weightGuruEntries
+	weightGuruEntries, err := getWeightGurusEntries(params)
+	if err != nil {
+		return nil, err
+	}
+	return weightGuruEntries, nil
 }
 
-func WriteNonDeletedEntriesToFile(email, password, fileName string) {
+func WriteNonDeletedEntriesToFile(email, password, fileName string) error {
 
-	weightGuruEntries := GetNonDeletedEntries(email, password)
+	weightGuruEntries, err := GetNonDeletedEntries(email, password)
+	if err != nil {
+		return err
+	}
 	jsonData, err := json.Marshal(weightGuruEntries)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	err = ioutil.WriteFile(fileName, jsonData, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
+
+
+	return err; 
 }
 
-func login(email, password string) string {
+func login(email, password string) (string , error) {
 	encodedLoginData, _ := json.Marshal(map[string]string{
 		"email":    email,
 		"password": password,
@@ -61,17 +70,17 @@ func login(email, password string) string {
 
 	req, err := CreateNewPostRequest("https://api.weightgurus.com/v3/account/login", "application/json", postBody)
 	if err != nil {
-		log.Fatal(err)
+		return "", err; 
 	}
 	body, err := DoRequestReturnBody(req)
-	if (err != nil) {
-		log.Fatal(err)
+	if err != nil {
+		return "", err; 
 	}
 
 	var weightGurusResponse map[string]interface{}
-	json.Unmarshal(body, &weightGurusResponse)
+	err = json.Unmarshal(body, &weightGurusResponse)
 
-	return weightGurusResponse["accessToken"].(string)
+	return weightGurusResponse["accessToken"].(string), err
 }
 
 func convertResponseInterfaceToWeightGuruOperation(responseInterface interface{}) WeightGuruOperation {
@@ -140,23 +149,29 @@ func removeDeletedOperation(deletedOperation WeightGuruOperation, weightHistory 
 	return *weightHistory; 
 }
 
-func getWeightGurusOperations(params weightHistoryParams) []interface{} {
-	req := prepareWeightHistoryRequest(params)
+func getWeightGurusOperations(params weightHistoryParams) ([]interface{}, error) {
+	req, err := prepareWeightHistoryRequest(params)
+	if err != nil {
+		return nil, err
+	}
 	body, err := DoRequestReturnBody(req)
 	if (err != nil) {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	var response map[string]interface{}
 	json.Unmarshal(body, &response)
 
 	operations := response["operations"].([]interface{})
-	return operations
+	return operations, nil
 }
 
-func getWeightGurusEntries(params weightHistoryParams) []WeightGuruOperation {
+func getWeightGurusEntries(params weightHistoryParams) ([]WeightGuruOperation, error) {
 
-	operations := getWeightGurusOperations(params)
+	operations, err := getWeightGurusOperations(params)
+	if err != nil {
+		return nil, err; 
+	}
 	var weightGuruEntries []WeightGuruOperation
 
 	// delete operations can appear before the operations they are deleting
@@ -175,10 +190,10 @@ func getWeightGurusEntries(params weightHistoryParams) []WeightGuruOperation {
 		weightGuruEntries = removeDeletedOperation(deleteOperation, &weightGuruEntries)
 	}
 
-	return weightGuruEntries
+	return weightGuruEntries, nil
 }
 
-func convertWeightGuruNumToFloat(weightGurusNum float64) float64 {
+func convertWeightGuruNumToFloat(weightGurusNum float64) (float64) {
 	number := fmt.Sprintf("%.0f", weightGurusNum)
 
 	if len(number) <= 1 {

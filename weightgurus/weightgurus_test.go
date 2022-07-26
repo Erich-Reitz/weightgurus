@@ -1,4 +1,4 @@
-package WeightGurus
+package weightgurus
 
 import (
 	"reflect"

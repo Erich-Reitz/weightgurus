@@ -1,9 +1,8 @@
-package WeightGurus
+package weightgurus
 
 import (
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 )
 
@@ -15,7 +14,7 @@ func AddBearerTokenToRequest(req *http.Request, bearerToken string) *http.Reques
 func DoRequestReturnBody(req *http.Request) ([]byte, error) {
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	defer resp.Body.Close()
@@ -49,11 +48,11 @@ func getEndpointUrl(params weightHistoryParams) string {
 	return "https://api.weightgurus.com/v3/operation/?" + params.startDate
 }
 
-func prepareWeightHistoryRequest(params weightHistoryParams) *http.Request {
+func prepareWeightHistoryRequest(params weightHistoryParams) (*http.Request, error) {
 	req, err := CreateNewGetRequest(getEndpointUrl(params))
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	req = AddBearerTokenToRequest(req, params.bearerToken)
-	return req
+	return req, nil
 }
