@@ -1,4 +1,4 @@
-# goWeightGurus
+# weightgurus
 
 ## Usage
 ```
