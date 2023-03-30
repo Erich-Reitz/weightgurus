@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"strconv"
 )
 
@@ -29,7 +30,7 @@ type weightHistoryParams struct {
 func GetNonDeletedEntries(email, password string) ([]WeightGuruOperation, error) {
 	bearerToken, err := login(email, password)
 	if err != nil {
-		return nil, err;
+		return nil, err
 	}
 
 	params := weightHistoryParams{
@@ -56,11 +57,10 @@ func WriteNonDeletedEntriesToFile(email, password, fileName string) error {
 
 	err = ioutil.WriteFile(fileName, jsonData, 0644)
 
-
-	return err; 
+	return err
 }
 
-func login(email, password string) (string , error) {
+func login(email, password string) (string, error) {
 	encodedLoginData, _ := json.Marshal(map[string]string{
 		"email":    email,
 		"password": password,
@@ -68,13 +68,25 @@ func login(email, password string) (string , error) {
 	})
 	postBody := bytes.NewBuffer(encodedLoginData)
 
-	req, err := CreateNewPostRequest("https://api.weightgurus.com/v3/account/login", "application/json", postBody)
+	req, err := http.NewRequest(http.MethodPost, "https://api.weightgurus.com/v3/account/login", postBody)
 	if err != nil {
-		return "", err; 
+		return "", err
 	}
-	body, err := DoRequestReturnBody(req)
+	req.Header.Set("Content-Type", "application/json")
+
 	if err != nil {
-		return "", err; 
+		return "", err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+
+	if err != nil {
+		return "", err
 	}
 
 	var weightGurusResponse map[string]interface{}
@@ -143,19 +155,36 @@ func removeDeletedOperation(deletedOperation WeightGuruOperation, weightHistory 
 				return (*weightHistory)[:i]
 			}
 			*weightHistory = append((*weightHistory)[:i], (*weightHistory)[i+1:]...)
-			break;
+			break
 		}
 	}
-	return *weightHistory; 
+	return *weightHistory
 }
 
 func getWeightGurusOperations(params weightHistoryParams) ([]interface{}, error) {
-	req, err := prepareWeightHistoryRequest(params)
+	var endpointUrl string
+	if params.startDate == "" {
+		endpointUrl = "https://api.weightgurus.com/v3/operation/?"
+	} else {
+		endpointUrl = "https://api.weightgurus.com/v3/operation/?" + params.startDate
+	}
+
+	req, err := http.NewRequest(http.MethodGet, endpointUrl, nil)
 	if err != nil {
 		return nil, err
 	}
-	body, err := DoRequestReturnBody(req)
-	if (err != nil) {
+	req.Header.Set("Authorization", "Bearer "+params.bearerToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+
+	// handle outside to defer than log fatal
+	if err != nil {
 		return nil, err
 	}
 
@@ -170,7 +199,7 @@ func getWeightGurusEntries(params weightHistoryParams) ([]WeightGuruOperation, e
 
 	operations, err := getWeightGurusOperations(params)
 	if err != nil {
-		return nil, err; 
+		return nil, err
 	}
 	var weightGuruEntries []WeightGuruOperation
 
@@ -193,7 +222,7 @@ func getWeightGurusEntries(params weightHistoryParams) ([]WeightGuruOperation, e
 	return weightGuruEntries, nil
 }
 
-func convertWeightGuruNumToFloat(weightGurusNum float64) (float64) {
+func convertWeightGuruNumToFloat(weightGurusNum float64) float64 {
 	number := fmt.Sprintf("%.0f", weightGurusNum)
 
 	if len(number) <= 1 {
